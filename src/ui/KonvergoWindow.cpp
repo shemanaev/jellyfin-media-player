@@ -89,7 +89,7 @@ KonvergoWindow::KonvergoWindow(QWindow* parent) :
   }
 #endif
 
-  loadGeometry();
+  loadGeometry(true);
 
   connect(SettingsComponent::Get().getSection(SETTINGS_SECTION_MAIN), &SettingsSection::valuesUpdated,
           this, &KonvergoWindow::updateMainSectionSettings);
@@ -177,14 +177,13 @@ void KonvergoWindow::saveGeometry()
   if (!fitsInScreens(rc))
     return;
 
-  QLOG_DEBUG() << "Saving window geometry:" << rc;
-
   if (visibility() == QWindow::Maximized)
   {
     SettingsComponent::Get().setValue(SETTINGS_SECTION_STATE, "maximized", true);
   }
   else if (visibility() != QWindow::Hidden)
   {
+    QLOG_DEBUG() << "Saving window geometry:" << rc;
     QVariantMap map = {{"x", rc.x()}, {"y", rc.y()},
                        {"width", rc.width()}, {"height", rc.height()}};
     SettingsComponent::Get().setValue(SETTINGS_SECTION_STATE, "geometry", map);
@@ -195,7 +194,7 @@ void KonvergoWindow::saveGeometry()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-QRect KonvergoWindow::loadGeometry()
+QRect KonvergoWindow::loadGeometry(bool initial)
 {
   QRect rc = loadGeometryRect();
   QScreen* myScreen = loadLastScreen();
@@ -226,10 +225,19 @@ QRect KonvergoWindow::loadGeometry()
   }
   else
   {
-    setGeometry(nsize);
-    if (SettingsComponent::Get().value(SETTINGS_SECTION_STATE, "maximized").toBool())
+    bool isMaximized = SettingsComponent::Get().value(SETTINGS_SECTION_STATE, "maximized").toBool();
+    if (!isMaximized || initial)
+    {
+      setGeometry(nsize);
+      setVisibility(QWindow::Windowed);
+    }
+    else if (isMaximized) 
+    {
       setVisibility(QWindow::Maximized);
-    saveGeometry();
+    }
+    
+    if (!initial)
+      saveGeometry();
   }
 
   return nsize;
@@ -435,7 +443,6 @@ void KonvergoWindow::updateWindowState(bool saveGeo)
   }
   else
   {
-    setVisibility(QWindow::Windowed);
     loadGeometry();
 
     Qt::WindowFlags forceOnTopFlags = Qt::WindowStaysOnTopHint;
@@ -500,7 +507,7 @@ void KonvergoWindow::onVisibilityChanged(QWindow::Visibility visibility)
     return;
   }
 
-  if (visibility == QWindow::FullScreen || visibility == QWindow::Windowed)
+  if (visibility == QWindow::FullScreen || visibility == QWindow::Windowed || visibility == QWindow::Maximized)
   {
     m_ignoreFullscreenSettingsChange++;
     ScopedDecrementer decrement(&m_ignoreFullscreenSettingsChange);

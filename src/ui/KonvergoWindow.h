@@ -116,7 +116,7 @@ private slots:
 
 private:
   void saveGeometry();
-  QRect loadGeometry();
+  QRect loadGeometry(bool initial = false);
   QRect loadGeometryRect();
   bool fitsInScreens(const QRect& rc);
   QScreen* loadLastScreen();
